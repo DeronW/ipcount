@@ -42,11 +42,3 @@ func Test_encode(t *testing.T) {
 	tree2, _ := Decode(s)
 	fmt.Println(tree2.MapValue())
 }
-
-// func Test_test(t *testing.T) {
-// 	ip := net.IPv4(192, 168, 2, 3)
-// 	fmt.Println(222)
-// 	for _, i := range ip {
-// 		fmt.Println(i)
-// 	}
-// }
