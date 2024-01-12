@@ -1,4 +1,4 @@
-# IP Tree
+# IP Count
 
 statistic distinct IP count, within tree structure could have better performace, within custom serialize func could have smaller storage space.
 
@@ -12,19 +12,19 @@ statistic distinct IP count, within tree structure could have better performace,
 ### Install
 
 ```sh
-go get github.com/DeronW/iptree
+go get github.com/DeronW/ipcount
 ```
 
 ### Usage
 
 ```go
-import "github.com/DeronW/iptree"
+import "github.com/DeronW/ipcount"
 
 var (
-    tree *iptree.Node
+    tree *ipcount.Node
 )
 
-tree, _ = iptree.Parse(map[string]int{
+tree, _ = ipcount.Parse(map[string]int{
     "192.168.1.1": 1,
     "192.168.1.2": 2,
     "::1": 3,

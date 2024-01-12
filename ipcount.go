@@ -1,4 +1,4 @@
-package iptree
+package ipcount
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ const (
 )
 
 /*
-parse a key-value map to iptree, source map example
+parse a key-value map to ipcount, source map example
 
 	{
 		"127.0.0.1": 3,
@@ -116,7 +116,7 @@ func (n *Node) Append(ip net.IP) (isNew bool) {
 }
 
 /*
-return tree's value as a map, same like params of `iptree.Parse`
+return tree's value as a map, same like params of `ipcount.Parse`
 */
 func (n *Node) MapValue() map[string]int {
 	data := map[string]int{}
