@@ -1,3 +1,3 @@
-module github.com/DeronW/iptree
+module github.com/DeronW/ipcount
 
 go 1.21
