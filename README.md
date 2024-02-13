@@ -1,6 +1,6 @@
 # IP Count
 
-statistic distinct IP count, within tree structure could have better performace, within custom serialize func could have smaller storage space.
+Counting distinct IPs, within tree structure, it have better performace, within custom serialize func could have smaller storage space.
 
 ### Features
 

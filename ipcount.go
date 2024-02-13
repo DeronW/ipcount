@@ -8,19 +8,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 )
-
-type Node struct {
-	// level value should be: 1 ~ 16
-	level int
-	// is leaf node
-	leaf bool
-	// ip value, only leaf node has count vaue
-	value int
-	// sub bytes, max count is 256
-	children map[byte]*Node
-}
 
 type byteValue struct {
 	Byte  byte
@@ -29,10 +17,8 @@ type byteValue struct {
 
 var (
 	// use `SL` as start symbol
-	Head = [2]byte{0x53, 0x4C}
-	// limit MapValue result, avoid out of memory
-	MaxMapValueCount = 1_000_000
-	v4InV6Prefix     = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
+	Head         = [2]byte{0x53, 0x4C}
+	v4InV6Prefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
 )
 
 const (
@@ -45,8 +31,12 @@ const (
 	Pow_2_8  = 256
 	Pow_2_16 = 65_536
 	Pow_2_24 = 16_777_216
-	Pow_2_32 = 4_294_967_296
+	// Pow_2_32 = 4_294_967_296
 )
+
+func New() *Node {
+	return &Node{}
+}
 
 /*
 parse a key-value map to ipcount, source map example
@@ -56,7 +46,7 @@ parse a key-value map to ipcount, source map example
 		"::1": 5
 	}
 */
-func Parse(src map[string]int) (*Node, error) {
+func Parse(src map[string]int) *Node {
 	tree := &Node{}
 	for k, v := range src {
 		ip := net.ParseIP(k)
@@ -64,124 +54,11 @@ func Parse(src map[string]int) (*Node, error) {
 			tree.insert(ip, v)
 		}
 	}
-	return tree, nil
-}
-
-func (n *Node) insert(ip net.IP, v int) bool {
-	node := n
-	isNew := false
-
-	for i := 0; i < 16; i++ {
-		b := ip[i]
-		if node.children == nil {
-			node.children = map[byte]*Node{}
-		}
-		t, ok := node.children[b]
-
-		if !ok {
-			isNew = true
-
-			leaf := false
-			children := map[byte]*Node{}
-			value := 0
-
-			if i == 15 {
-				leaf = true
-				children = nil
-				value = v
-			}
-
-			t = &Node{
-				level:    i,
-				leaf:     leaf,
-				value:    value,
-				children: children,
-			}
-
-			node.children[b] = t
-		} else {
-			t.value += v
-		}
-		node = t
-	}
-
-	return isNew
-}
-
-/*
-append a new ip to tree, and will return true if it's a new one
-*/
-func (n *Node) Append(ip net.IP) (isNew bool) {
-	return n.insert(ip.To16(), 1)
-}
-
-/*
-return tree's value as a map, same like params of `ipcount.Parse`
-*/
-func (n *Node) MapValue() map[string]int {
-	data := map[string]int{}
-	c := 0
-
-	toIP := func(bs []byte) string {
-		if isIPv4(bs) {
-			return fmt.Sprintf("%d.%d.%d.%d", bs[12], bs[13], bs[14], bs[15])
-		}
-		seg := []string{}
-		for i := 0; i < 16; i += 2 {
-			seg = append(seg, hex.EncodeToString(bs[i:i+2]))
-		}
-		return strings.Join(seg, ":")
-	}
-
-	dfs(n, []byte{}, func(path []byte, value int) {
-		c += 1
-		if c > MaxMapValueCount {
-			return
-		}
-		data[toIP(path)] = value
-	})
-
-	return data
-}
-
-/*
-return counts: (ipv4_count, ipv6_count)
-*/
-func (n *Node) Count() (v4 int, v6 int) {
-	dfs(n, []byte{}, func(path []byte, value int) {
-		if isIPv4(path) {
-			v4 += 1
-		} else {
-			v6 += 1
-		}
-	})
-
-	return
+	return tree
 }
 
 func isIPv4(bs []byte) bool {
 	return bytes.Equal(bs[:12], v4InV6Prefix)
-}
-
-// depth first search, by ip in increasing order
-func dfs(n *Node, path []byte, cb func(path []byte, value int)) {
-	if n == nil {
-		return
-	}
-	if n.leaf {
-		cb(path, n.value)
-	} else {
-		keys := []byte{}
-		for b := range n.children {
-			keys = append(keys, b)
-		}
-		sort.Slice(keys, func(i, j int) bool {
-			return keys[i] > keys[j]
-		})
-		for _, k := range keys {
-			dfs(n.children[k], append(path, k), cb)
-		}
-	}
 }
 
 // breath first search
@@ -189,14 +66,25 @@ func bfs(n *Node, path []byte, cb func(path []byte, nodes map[byte]*Node)) {
 	if n.children == nil {
 		return
 	}
+
 	cb(path, n.children)
-	for b, c := range n.children {
-		bfs(c, append(path, b), cb)
+
+	keys := []byte{}
+	for b := range n.children {
+		keys = append(keys, b)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+
+	for _, k := range keys {
+		c := n.children[k]
+		bfs(c, append(path, k), cb)
 	}
 }
 
-func intToBytes(n int) []byte {
-	// less than 2^6, use common 1 byte
+func int2bytes(n int) []byte {
+	// less than 2^6, share one byte
 	if n < Pow_2_6 {
 		return []byte{byte(n)}
 	}
@@ -221,10 +109,14 @@ func intToBytes(n int) []byte {
 			byte(n % Pow_2_8),
 		}
 	}
+	// max value
 	return []byte{0xff, 0xff, 0xff, 0xff}
 }
 
-func bytesToInt(bs []byte) (int, int) {
+/*
+convert dynamic bytes to int number, return int and bytes count
+*/
+func bytes2int(bs []byte) (int, int) {
 	c := bs[0] & 0xc0
 	first := bs[0] & 0x3f
 	if c == 0x00 {
@@ -247,28 +139,34 @@ func bytesToInt(bs []byte) (int, int) {
 	return 0, 1
 }
 
-func Encode(root *Node) (string, error) {
+func Encode(root *Node) string {
 	bs := []byte{Head[0], Head[1]}
 
 	bfs(root, []byte{}, func(path []byte, nodes map[byte]*Node) {
 		/*
-			bytes 序列化规则， 按顺序分成 5 部分
-			- 【1 byte】
-				- 前 4 个 bit，表示父级的 level，顺着当前 parent 往回找
-				- 第 5 个 bit，是否为叶子节点，1 为是，0 为否
-				- 后 3 个 bit，保留位
-			-【1 byte】parent 的 byte，如果父级是根，则省略这个字节
-			-【1 byte】整数，表示后面有多少个节点 node
-			-【n bytes，节点标记】
-				-【1 byte】地址
-				-【1 byte】数量标记，只有叶子节点才有数量。注意：用大端序
-					- 前 2 个 bit，表示后面还有几个字节表示数量，00 表示没有，11 表示后面还有 3 个字节
-						如果 00，则将这个 byte 与 0x3f 进行 “且” 运算，计算出当前值
-				-【1~3 byte】如果节点的数值较大，则需要额外字节保存数值，与前一个字节共同构成
-					【0x3f,0xff,0xff,0xff】范围的数字表示，注意：无符号整数
+			bytes, serialize rules, has 4 parts
+			- [1 byte]
+				- 1~4 bits, parent's level (0~15)
+				- 5th bit, 1 if current node is leaf, 0 means not
+				- 6~8th bits, reserved
+			- [1 byte] byte of parent's key，it's omitted if parent is root
+			- [1 byte] an integer, means how many nodes tailed
+			- [n bytes] node's mark
+				- [1 byte] address
+				- [1 byte] number mark, only in leaf node. NOTE: in big-endian
+					- 1~2 bits，means how many bytes tailed
+						- 00: means no tailed bytes
+						- 01: means 1 byte tailed
+						- 10: means 2 bytes tailed
+						- 11: means 3 bytes tailed
+						if 00 presented, use `and` operator with `0x3f`,
+						got final value
+				-[0~3 bytes] if node's value need more bytes, 1 or at most 3 bytes
+					will be tailed, max value will be [0x3f,0xff,0xff,0xff]
+					NOTE: in uint-type
 		*/
 
-		// level 最小 0 最大 15，叶子节点是 15
+		// level: 0 ~ 15，leaf is and only leaf is 15
 		level := len(path)
 		isLeaf := level == 15
 
@@ -284,11 +182,22 @@ func Encode(root *Node) (string, error) {
 
 		nodeLen := 0
 		nodeCnt := []byte{}
-		for k, v := range nodes {
+
+		// sort nodes
+		keys := []byte{}
+		for k := range nodes {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i] < keys[j]
+		})
+
+		for _, k := range keys {
+			v := nodes[k]
 			nodeLen += 1
 			nodeCnt = append(nodeCnt, k)
 			if isLeaf {
-				nodeCnt = append(nodeCnt, intToBytes(v.value)...)
+				nodeCnt = append(nodeCnt, int2bytes(*v.value)...)
 			}
 		}
 		block = append(block, byte(nodeLen))
@@ -301,7 +210,7 @@ func Encode(root *Node) (string, error) {
 	// if err != nil {
 	// 	return "", err
 	// }
-	return hex.EncodeToString(bs), nil
+	return hex.EncodeToString(bs)
 }
 
 func Decode(s string) (*Node, error) {
@@ -316,23 +225,34 @@ func Decode(s string) (*Node, error) {
 	if size < 2 {
 		return nil, errors.New("bytes length is too short")
 	}
+
+	// record decode position with a cursor
+	cursor := 0
+
 	if bs[0] != Head[0] || bs[1] != Head[1] {
 		return nil, errors.New("invalid bytes prefix")
 	}
+	// head always ocuppy 2 bytes
+	cursor += 2
 
 	parents := []byte{}
 
-	for i := 2; i < size; {
-		flag := bs[i]
-		i += 1
+	// decode byte by byte, until the end
+	for cursor < size {
+		flag := bs[cursor]
+		// level and isLeaf flag, take one byte
+		cursor += 1
 
-		level := flag & 0xf0 >> 4
+		level := (flag & 0xf0) >> 4
 		parent := byte(0)
 		if level > 0 {
-			parent = bs[i]
-			i += 1
+			// non-root parent, take one byte
+			parent = bs[cursor]
+			cursor += 1
 		}
 		// level 如果小于 parents 的长度，说明需要回退到树的组父级节点
+		// if level is less than length of parents,
+		// it needs to back to someone grand level
 		if int(level) < len(parents) {
 			parents = parents[:level-1]
 		}
@@ -348,29 +268,32 @@ func Decode(s string) (*Node, error) {
 		}
 
 		isLeaf := level == 15
-		nCount := int(bs[i])
-		i += 1
+		nCount := int(bs[cursor])
+		// tailed nodes count, take one byte
+		cursor += 1
 
-		nodes := []byteValue{}
+		bvNodes := []byteValue{}
 
 		for j := 0; j < nCount; j++ {
-			n := byteValue{Byte: bs[i]}
-			i += 1
+			bv := byteValue{Byte: bs[cursor]}
+			// node address, take one byte
+			cursor += 1
 
 			if isLeaf {
 				// 按最大字节数计算，但结尾的字节数不足，需要判断
-				end := i + 4
+				end := cursor + 4
 				if end > size {
 					end = size
 				}
-				v, bytesCount := bytesToInt(bs[i:end])
-				i += bytesCount
-				n.Value = v
+				v, bytesCount := bytes2int(bs[cursor:end])
+				// dynamic count bytes, 0~3 bytes
+				cursor += bytesCount
+				bv.Value = v
 			}
 
-			nodes = append(nodes, n)
+			bvNodes = append(bvNodes, bv)
 		}
-		err := appendChildren(root, parents, nodes)
+		err := mountChildren(root, parents, bvNodes)
 		if err != nil {
 			return nil, err
 		}
@@ -379,8 +302,8 @@ func Decode(s string) (*Node, error) {
 	return root, nil
 }
 
-func appendChildren(n *Node, parents []byte, nodes []byteValue) error {
-	node := n
+func mountChildren(root *Node, parents []byte, bvNodes []byteValue) error {
+	node := root
 	for _, p := range parents {
 		t, ok := node.children[p]
 		if !ok {
@@ -388,14 +311,24 @@ func appendChildren(n *Node, parents []byte, nodes []byteValue) error {
 		}
 		node = t
 	}
+
 	node.children = map[byte]*Node{}
 	level := len(parents)
 
-	for _, t := range nodes {
+	for _, t := range bvNodes {
+		isLeaf := level == 15
+		var value *int
+
+		if isLeaf {
+			// make a value copy, or it will cause value cover by same pointer
+			a := t.Value
+			value = &a
+		}
+
 		node.children[t.Byte] = &Node{
 			level: level,
-			leaf:  level == 15,
-			value: t.Value,
+			leaf:  isLeaf,
+			value: value,
 		}
 	}
 	return nil
@@ -408,6 +341,7 @@ func compress(src []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compression write error: %v", err)
 	}
+
 	err = w.Close()
 	if err != nil {
 		return nil, err
