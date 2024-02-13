@@ -39,3 +39,16 @@ fmt.Println(tree.MapValue())
 tree.MapValue()
 
 ```
+
+Benchmark
+
+```sh
+goos: darwin
+goarch: amd64
+pkg: github.com/DeronW/ipcount
+cpu: Intel(R) Core(TM) i5-1038NG7 CPU @ 2.00GHz
+Benchmark_parse-8         343771              3539 ns/op
+Benchmark_append-8       2187868               520.1 ns/op
+PASS
+ok      github.com/DeronW/ipcount       4.386s
+```

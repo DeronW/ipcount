@@ -1,7 +1,6 @@
 package ipcount
 
 import (
-	"fmt"
 	"net"
 	"testing"
 )
@@ -12,25 +11,24 @@ func Test_new(t *testing.T) {
 	if tree.Count() != 1 {
 		t.Error("count error")
 	}
-
-	fmt.Println(tree.MapValue())
+	// fmt.Println(tree.MapValue())
 
 	tree.AppendIP("::1")
 	if tree.Count() != 2 {
 		t.Error("count error")
 	}
-	fmt.Println(tree.MapValue())
+	// fmt.Println(tree.MapValue())
 
 	tree.RemoveIP("::1")
 	if tree.Count() != 1 {
 		t.Error("count error")
 	}
-	fmt.Println(tree.MapValue())
+	// fmt.Println(tree.MapValue())
 	tree.RemoveIP("::0")
 	if tree.Count() != 0 {
 		t.Error("count error")
 	}
-	fmt.Println(tree.MapValue())
+	// fmt.Println(tree.MapValue())
 }
 
 func Test_parse(t *testing.T) {
