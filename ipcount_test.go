@@ -1,6 +1,8 @@
 package ipcount
 
 import (
+	"encoding/hex"
+	"fmt"
 	"net"
 	"testing"
 )
@@ -17,18 +19,22 @@ func Test_new(t *testing.T) {
 	if tree.Count() != 2 {
 		t.Error("count error")
 	}
-	// fmt.Println(tree.MapValue())
+	fmt.Println(tree.MapValue())
+	s := Encode(tree)
+	fmt.Println(s)
+	a, _ := hex.DecodeString(s)
+	b, _ := compress(a)
+	fmt.Println(b)
 
 	tree.RemoveIP("::1")
 	if tree.Count() != 1 {
 		t.Error("count error")
 	}
-	// fmt.Println(tree.MapValue())
+
 	tree.RemoveIP("::0")
 	if tree.Count() != 0 {
 		t.Error("count error")
 	}
-	// fmt.Println(tree.MapValue())
 }
 
 func Test_parse(t *testing.T) {

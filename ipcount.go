@@ -63,7 +63,7 @@ func isIPv4(bs []byte) bool {
 
 // breath first search
 func bfs(n *Node, path []byte, cb func(path []byte, nodes map[byte]*Node)) {
-	if n.children == nil {
+	if n == nil || n.children == nil {
 		return
 	}
 
