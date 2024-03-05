@@ -66,7 +66,7 @@ func Test_parse(t *testing.T) {
 func Test_encode(t *testing.T) {
 	tree := Parse(map[string]int{
 		"192.168.10.1": 3,
-		"192.168.10.5": 7,
+		"192.168.10.5": 1_073_741_823,
 	})
 	tree.Append(net.ParseIP("192.168.10.11"))
 	tree.Append(net.ParseIP("192.168.10.12"))

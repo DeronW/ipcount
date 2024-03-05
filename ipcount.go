@@ -95,7 +95,7 @@ func int2bytes(n int) []byte {
 	// less then 2 ^ (6+8+8)
 	if n < Pow_2_22 {
 		return []byte{
-			byte(n/Pow_2_16) & 0x80,
+			byte(n/Pow_2_16) | 0x80,
 			byte(n / Pow_2_8 % Pow_2_8),
 			byte(n % Pow_2_8),
 		}
@@ -103,7 +103,7 @@ func int2bytes(n int) []byte {
 	// less then 2 ^ (6+8+8+8)
 	if n < Pow_2_30 {
 		return []byte{
-			byte(n/Pow_2_24) & 0xc0,
+			byte(n/Pow_2_24) | 0xc0,
 			byte(n / Pow_2_16 % Pow_2_8),
 			byte(n / Pow_2_8 % Pow_2_8),
 			byte(n % Pow_2_8),
